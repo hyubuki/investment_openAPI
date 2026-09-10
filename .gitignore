@@ -179,5 +179,5 @@ gradle-app.setting
 *.hprof
 
 .codex/
-.agents/
+.agents/*
 # End of https://www.toptal.com/developers/gitignore/api/intellij+iml,gradle,macos,windows
