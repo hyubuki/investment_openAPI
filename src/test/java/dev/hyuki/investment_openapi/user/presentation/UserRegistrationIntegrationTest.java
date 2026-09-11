@@ -14,6 +14,7 @@ import dev.hyuki.investment_openapi.user.entity.UserStatus;
 import dev.hyuki.investment_openapi.user.repository.UserRepository;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -48,6 +49,7 @@ class UserRegistrationIntegrationTest {
   }
 
   @Test
+  @DisplayName("회원가입 시 이메일을 정규화하고 USER 권한과 BCrypt 비밀번호 해시를 저장한다")
   void registersNormalizedEmailWithServerControlledRoleAndPasswordHash() throws Exception {
     String requestId = "registration-request-001";
 
@@ -78,6 +80,7 @@ class UserRegistrationIntegrationTest {
   }
 
   @Test
+  @DisplayName("정규화 결과가 같은 이메일로 재가입하면 409 Conflict를 반환한다")
   void rejectsNormalizedDuplicateEmail() throws Exception {
     register("Trader@Example.com", PASSWORD).andExpect(status().isCreated());
 
@@ -91,6 +94,7 @@ class UserRegistrationIntegrationTest {
   }
 
   @Test
+  @DisplayName("이메일 형식과 UTF-8 기준 8~72바이트 비밀번호 길이를 검증한다")
   void validatesEmailAndUtf8PasswordByteLength() throws Exception {
     register("not-an-email", PASSWORD)
         .andExpect(status().isBadRequest())
