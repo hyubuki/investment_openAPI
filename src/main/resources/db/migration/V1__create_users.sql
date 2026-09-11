@@ -9,7 +9,6 @@ CREATE TABLE users (
     last_login_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT uk_users_email UNIQUE (email),
     CONSTRAINT chk_users_email_not_empty CHECK (email <> ''),
     CONSTRAINT chk_users_email_normalized CHECK (email = LOWER(TRIM(email))),
