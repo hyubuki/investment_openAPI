@@ -1,0 +1,56 @@
+@baseUrl = http://localhost:8080
+@requestId = local-http-registration
+@password = local-password-123!
+
+### 사용자 등록 성공
+# @name registerUser
+POST {{baseUrl}}/api/v1/users
+Content-Type: application/json
+X-Request-Id: {{requestId}}
+
+{
+  "email": "local-{{$uuid}}@example.com",
+  "password": "{{password}}"
+}
+
+> {%
+  client.test("201 Created와 생성 위치를 반환한다", function () {
+    client.assert(response.status === 201, "status must be 201");
+    client.assert(response.headers.valueOf("X-Request-Id") === "local-http-registration");
+    client.assert(response.headers.valueOf("Location").endsWith(response.body.userId));
+  });
+  client.global.set("registeredEmail", response.body.email);
+%}
+
+### 정규화된 이메일 중복 등록 거부
+POST {{baseUrl}}/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "  {{registeredEmail}}  ",
+  "password": "{{password}}"
+}
+
+> {%
+  client.test("409 Conflict와 EMAIL_ALREADY_EXISTS를 반환한다", function () {
+    client.assert(response.status === 409, "status must be 409");
+    client.assert(response.body.code === "EMAIL_ALREADY_EXISTS");
+  });
+%}
+
+### 잘못된 이메일과 짧은 비밀번호 검증
+POST {{baseUrl}}/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "short"
+}
+
+> {%
+  client.test("400 Bad Request와 VALIDATION_ERROR를 반환한다", function () {
+    client.assert(response.status === 400, "status must be 400");
+    client.assert(response.body.code === "VALIDATION_ERROR");
+    client.assert(response.body.violations.length >= 2);
+  });
+%}
