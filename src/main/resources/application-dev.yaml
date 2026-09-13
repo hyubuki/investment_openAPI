@@ -17,3 +17,13 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_TIMEOUT:2s}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:true}
