@@ -1,10 +1,12 @@
 package dev.hyuki.investment_openapi.user.service;
 
+import dev.hyuki.investment_openapi.auth.service.AuthTokenService;
+import dev.hyuki.investment_openapi.auth.token.TokenPair;
+import dev.hyuki.investment_openapi.support.error.ApiException;
+import dev.hyuki.investment_openapi.support.error.ErrorCode;
 import dev.hyuki.investment_openapi.user.entity.User;
 import dev.hyuki.investment_openapi.user.repository.UserRepository;
 import dev.hyuki.investment_openapi.user.support.EmailNormalizer;
-import dev.hyuki.investment_openapi.support.error.ApiException;
-import dev.hyuki.investment_openapi.support.error.ErrorCode;
 import java.time.Clock;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,16 +18,23 @@ public class UserService {
 
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
+  private final AuthTokenService authTokenService;
   private final Clock clock;
 
-  public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, Clock clock) {
+  public UserService(
+      UserRepository userRepository,
+      PasswordEncoder passwordEncoder,
+      AuthTokenService authTokenService,
+      Clock clock
+  ) {
     this.userRepository = userRepository;
     this.passwordEncoder = passwordEncoder;
+    this.authTokenService = authTokenService;
     this.clock = clock;
   }
 
   @Transactional
-  public RegisteredUser register(String email, String rawPassword) {
+  public RegisteredUserSession register(String email, String rawPassword) {
     String normalizedEmail = EmailNormalizer.normalize(email);
     if (userRepository.existsByEmail(normalizedEmail)) {
       throw emailAlreadyExists();
@@ -37,11 +46,14 @@ public class UserService {
         clock.instant()
     );
 
+    RegisteredUser registeredUser;
     try {
-      return RegisteredUser.from(userRepository.saveAndFlush(user));
+      registeredUser = RegisteredUser.from(userRepository.saveAndFlush(user));
     } catch (DataIntegrityViolationException exception) {
       throw emailAlreadyExists(exception);
     }
+    TokenPair tokens = authTokenService.issueSession(registeredUser.userId());
+    return new RegisteredUserSession(registeredUser, tokens);
   }
 
   private ApiException emailAlreadyExists() {

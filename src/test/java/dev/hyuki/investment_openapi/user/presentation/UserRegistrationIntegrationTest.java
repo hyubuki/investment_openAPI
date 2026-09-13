@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.hyuki.investment_openapi.auth.session.RedisSessionStore;
+import dev.hyuki.investment_openapi.auth.token.JwtTokenProvider;
+import dev.hyuki.investment_openapi.support.RedisBackedIntegrationTest;
 import dev.hyuki.investment_openapi.user.entity.User;
 import dev.hyuki.investment_openapi.user.entity.UserRole;
 import dev.hyuki.investment_openapi.user.entity.UserStatus;
@@ -27,7 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class UserRegistrationIntegrationTest {
+class UserRegistrationIntegrationTest extends RedisBackedIntegrationTest {
 
   private static final String PASSWORD = "valid-password-123!";
 
@@ -43,6 +46,12 @@ class UserRegistrationIntegrationTest {
   @Autowired
   private PasswordEncoder passwordEncoder;
 
+  @Autowired
+  private JwtTokenProvider tokenProvider;
+
+  @Autowired
+  private RedisSessionStore sessionStore;
+
   @BeforeEach
   void clearUsers() {
     userRepository.deleteAll();
@@ -53,7 +62,7 @@ class UserRegistrationIntegrationTest {
   void registersNormalizedEmailWithServerControlledRoleAndPasswordHash() throws Exception {
     String requestId = "registration-request-001";
 
-    mockMvc.perform(post("/api/v1/users")
+    var result = mockMvc.perform(post("/api/v1/users")
             .header("X-Request-Id", requestId)
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsBytes(Map.of(
@@ -69,14 +78,28 @@ class UserRegistrationIntegrationTest {
         .andExpect(jsonPath("$.email").value("trader@example.com"))
         .andExpect(jsonPath("$.role").value("USER"))
         .andExpect(jsonPath("$.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.tokens.tokenType").value("Bearer"))
+        .andExpect(jsonPath("$.tokens.accessToken").isNotEmpty())
+        .andExpect(jsonPath("$.tokens.expiresIn").value(1800))
+        .andExpect(jsonPath("$.tokens.refreshToken").isNotEmpty())
+        .andExpect(jsonPath("$.tokens.refreshExpiresIn").value(86400))
         .andExpect(jsonPath("$.password").doesNotExist())
-        .andExpect(jsonPath("$.passwordHash").doesNotExist());
+        .andExpect(jsonPath("$.passwordHash").doesNotExist())
+        .andReturn();
 
     User saved = userRepository.findByEmail("trader@example.com").orElseThrow();
     assertThat(saved.getRole()).isEqualTo(UserRole.USER);
     assertThat(saved.getStatus()).isEqualTo(UserStatus.ACTIVE);
     assertThat(saved.getPasswordHash()).isNotEqualTo(PASSWORD);
     assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isTrue();
+    var session = sessionStore.findByUserId(saved.getUserId()).orElseThrow();
+    String refreshToken = objectMapper.readTree(result.getResponse().getContentAsString())
+        .path("tokens")
+        .path("refreshToken")
+        .asText();
+    assertThat(tokenProvider.readRefresh(refreshToken))
+        .returns(saved.getUserId(), claims -> claims.userId())
+        .returns(session.sessionId(), claims -> claims.sessionId());
   }
 
   @Test

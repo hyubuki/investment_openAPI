@@ -61,6 +61,7 @@ class JwtTokenProviderTest {
         .returns(sessionId, TokenClaims::sessionId)
         .returns(NOW.plusSeconds(86400), TokenClaims::expiresAt);
     assertThat(pair.accessToken()).isNotEqualTo(pair.refreshToken());
+    assertThat(pair.issuedAt()).isEqualTo(NOW);
     assertThat(tokenProvider.issue(userId, sessionId).refreshToken())
         .isNotEqualTo(pair.refreshToken());
     assertThat(pair.toString()).doesNotContain(pair.accessToken(), pair.refreshToken());

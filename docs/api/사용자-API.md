@@ -10,7 +10,7 @@
 
 |항목|내용|
 |:--:|:--|
-|설명|일반 사용자를 등록한다.|
+|설명|일반 사용자를 등록하고 인증 Session을 생성해 Token Pair를 함께 발급한다.|
 |인증|불필요|
 |성공 Status|`201 Created`|
 
@@ -41,6 +41,7 @@
 |password|필수, 8~72 byte, Password 정책 충족|
 |role|Client 입력을 허용하지 않고 서버가 `USER`로 지정|
 |중복 이메일|정규화된 이메일 Unique Constraint로 최종 검증|
+|Session 발급|Redis Session 저장 실패 시 사용자 생성 Transaction도 실패 처리|
 
 ## Response
 
@@ -52,7 +53,14 @@
   "email": "trader@example.com",
   "role": "USER",
   "status": "ACTIVE",
-  "createdAt": "2026-09-11T01:00:00Z"
+  "createdAt": "2026-09-11T01:00:00Z",
+  "tokens": {
+    "tokenType": "Bearer",
+    "accessToken": "access-token-value",
+    "expiresIn": 1800,
+    "refreshToken": "refresh-token-value",
+    "refreshExpiresIn": 86400
+  }
 }
 ```
 
