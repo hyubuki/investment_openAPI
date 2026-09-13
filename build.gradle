@@ -47,3 +47,23 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+tasks.register('dockerBuild', Exec) {
+    group = 'local development'
+    description = 'Runs tests and builds the local application Docker image.'
+    dependsOn tasks.named('test')
+    commandLine 'docker', 'compose', 'build', 'app'
+}
+
+tasks.register('localUp', Exec) {
+    group = 'local development'
+    description = 'Builds and starts the local application, PostgreSQL, and Redis.'
+    dependsOn tasks.named('dockerBuild')
+    commandLine 'docker', 'compose', 'up', '--detach', '--wait'
+}
+
+tasks.register('localDown', Exec) {
+    group = 'local development'
+    description = 'Stops local containers without deleting database volumes.'
+    commandLine 'docker', 'compose', 'down'
+}
