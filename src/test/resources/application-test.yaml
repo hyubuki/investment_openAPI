@@ -15,3 +15,11 @@ spring:
 
   flyway:
     enabled: true
+
+security:
+  jwt:
+    issuer: investment-openapi-test
+    audience: investment-openapi-test-clients
+    secret: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+    access-token-ttl: PT30M
+    refresh-token-ttl: PT24H

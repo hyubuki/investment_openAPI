@@ -14,6 +14,18 @@ public enum ErrorCode {
       "email-already-exists",
       "Email already exists",
       false
+  ),
+  INVALID_TOKEN(
+      HttpStatus.UNAUTHORIZED,
+      "invalid-token",
+      "Invalid token",
+      false
+  ),
+  TOKEN_EXPIRED(
+      HttpStatus.UNAUTHORIZED,
+      "token-expired",
+      "Token expired",
+      false
   );
 
   private final HttpStatus status;

@@ -7,3 +7,11 @@ spring:
 
   jpa:
     open-in-view: false
+
+security:
+  jwt:
+    issuer: ${JWT_ISSUER:investment-openapi}
+    audience: ${JWT_AUDIENCE:investment-openapi-clients}
+    secret: ${JWT_SECRET}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT30M}
+    refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:PT24H}
