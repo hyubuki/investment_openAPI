@@ -78,7 +78,13 @@ class AuthTokenServiceTest {
         .save(any(AuthSession.class));
 
     assertThatThrownBy(() -> authTokenService.issueSession(userId))
-        .isInstanceOf(RedisConnectionFailureException.class);
+        .isInstanceOfSatisfying(
+            ApiException.class,
+            exception -> {
+              assertThat(exception.code()).isEqualTo(ErrorCode.AUTHENTICATION_UNAVAILABLE);
+              assertThat(exception.getCause()).isInstanceOf(RedisConnectionFailureException.class);
+            }
+        );
   }
 
   @Test

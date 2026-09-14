@@ -48,7 +48,7 @@ public class AuthService {
 
   @Transactional
   public TokenPair login(String email, String rawPassword) {
-    Optional<User> candidate = userRepository.findByEmail(EmailNormalizer.normalize(email));
+    Optional<User> candidate = findLoginCandidate(email);
     String passwordHash = candidate.map(User::getPasswordHash).orElse(dummyPasswordHash);
     boolean passwordMatches = passwordEncoder.matches(rawPassword, passwordHash);
     if (candidate.isEmpty() || !passwordMatches) {
@@ -67,18 +67,21 @@ public class AuthService {
 
   public TokenPair refresh(String refreshToken) {
     TokenClaims claims = tokenProvider.readRefresh(refreshToken);
-    User user = userRepository.findById(claims.userId())
-        .orElseThrow(() -> new ApiException(
-            ErrorCode.SESSION_INVALID,
-            "The authentication session is invalid."
-        ));
+    User user = findSessionUser(claims);
     requireActive(user);
     return authTokenService.rotateSession(refreshToken);
   }
 
   public void logout(String accessToken) {
     TokenClaims claims = tokenProvider.readAccess(accessToken);
-    sessionStore.deleteIfSessionMatches(claims.userId(), claims.sessionId());
+    try {
+      sessionStore.deleteIfSessionMatches(claims.userId(), claims.sessionId());
+    } catch (DataAccessException | IllegalStateException exception) {
+      throw authenticationUnavailable(
+          "The authentication session could not be revoked.",
+          exception
+      );
+    }
   }
 
   @Transactional(readOnly = true)
@@ -113,12 +116,41 @@ public class AuthService {
               "The authenticated user is not active."
           ));
     } catch (DataAccessException exception) {
-      throw new ApiException(
-          ErrorCode.AUTHENTICATION_UNAVAILABLE,
+      throw authenticationUnavailable(
           "The authenticated user could not be verified.",
           exception
       );
     }
+  }
+
+  private Optional<User> findLoginCandidate(String email) {
+    try {
+      return userRepository.findByEmail(EmailNormalizer.normalize(email));
+    } catch (DataAccessException exception) {
+      throw authenticationUnavailable(
+          "The supplied credentials could not be verified.",
+          exception
+      );
+    }
+  }
+
+  private User findSessionUser(TokenClaims claims) {
+    try {
+      return userRepository.findById(claims.userId())
+          .orElseThrow(() -> new ApiException(
+              ErrorCode.SESSION_INVALID,
+              "The authentication session is invalid."
+          ));
+    } catch (DataAccessException exception) {
+      throw authenticationUnavailable(
+          "The authentication session user could not be verified.",
+          exception
+      );
+    }
+  }
+
+  private ApiException authenticationUnavailable(String message, RuntimeException cause) {
+    return new ApiException(ErrorCode.AUTHENTICATION_UNAVAILABLE, message, cause);
   }
 
   private void requireActive(User user) {

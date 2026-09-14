@@ -11,6 +11,7 @@ import dev.hyuki.investment_openapi.support.error.ApiException;
 import dev.hyuki.investment_openapi.support.error.ErrorCode;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -34,17 +35,32 @@ public class AuthTokenService {
     Objects.requireNonNull(userId, "userId must not be null");
     UUID sessionId = UUID.randomUUID();
     TokenPair pair = tokenProvider.issue(userId, sessionId);
-    sessionStore.save(session(pair, userId));
+    try {
+      sessionStore.save(session(pair, userId));
+    } catch (DataAccessException | IllegalStateException exception) {
+      throw authenticationUnavailable(
+          "The authentication session could not be created.",
+          exception
+      );
+    }
     return pair;
   }
 
   public TokenPair rotateSession(String refreshToken) {
     TokenClaims claims = tokenProvider.readRefresh(refreshToken);
     TokenPair replacement = tokenProvider.issue(claims.userId(), claims.sessionId());
-    SessionRotationResult result = sessionStore.rotate(
-        session(replacement, claims.userId()),
-        refreshTokenHasher.hash(refreshToken)
-    );
+    SessionRotationResult result;
+    try {
+      result = sessionStore.rotate(
+          session(replacement, claims.userId()),
+          refreshTokenHasher.hash(refreshToken)
+      );
+    } catch (DataAccessException | IllegalStateException exception) {
+      throw authenticationUnavailable(
+          "The authentication session could not be refreshed.",
+          exception
+      );
+    }
     return switch (result) {
       case ROTATED -> replacement;
       case REUSED -> throw new ApiException(
@@ -66,5 +82,9 @@ public class AuthTokenService {
         pair.issuedAt(),
         pair.refreshExpiresAt()
     );
+  }
+
+  private ApiException authenticationUnavailable(String message, RuntimeException cause) {
+    return new ApiException(ErrorCode.AUTHENTICATION_UNAVAILABLE, message, cause);
   }
 }

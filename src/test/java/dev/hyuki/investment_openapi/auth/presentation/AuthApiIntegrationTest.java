@@ -1,6 +1,9 @@
 package dev.hyuki.investment_openapi.auth.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -13,6 +16,7 @@ import dev.hyuki.investment_openapi.auth.session.RedisSessionStore;
 import dev.hyuki.investment_openapi.auth.token.JwtTokenProvider;
 import dev.hyuki.investment_openapi.support.RedisBackedIntegrationTest;
 import dev.hyuki.investment_openapi.user.entity.User;
+import dev.hyuki.investment_openapi.user.entity.UserStatus;
 import dev.hyuki.investment_openapi.user.repository.UserRepository;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,9 +25,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -41,13 +48,13 @@ class AuthApiIntegrationTest extends RedisBackedIntegrationTest {
   @Autowired
   private ObjectMapper objectMapper;
 
-  @Autowired
+  @MockitoSpyBean
   private UserRepository userRepository;
 
   @Autowired
   private JwtTokenProvider tokenProvider;
 
-  @Autowired
+  @MockitoSpyBean
   private RedisSessionStore sessionStore;
 
   @BeforeEach
@@ -205,6 +212,40 @@ class AuthApiIntegrationTest extends RedisBackedIntegrationTest {
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + currentAccessToken))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.email").value(EMAIL));
+  }
+
+  @Test
+  @DisplayName("Redis 장애 중 보호 API 인증을 fail-closed 처리하고 재시도 가능한 503을 반환한다")
+  void returnsServiceUnavailableWhenRedisCannotVerifySession() throws Exception {
+    JsonNode registration = register();
+    String accessToken = registration.path("tokens").path("accessToken").asText();
+    doThrow(new RedisConnectionFailureException("test outage"))
+        .when(sessionStore)
+        .hasActiveSession(any(), any());
+
+    mockMvc.perform(get("/api/v1/users/me")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+        .andExpect(status().isServiceUnavailable())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("AUTHENTICATION_UNAVAILABLE"))
+        .andExpect(jsonPath("$.retryable").value(true));
+  }
+
+  @Test
+  @DisplayName("PostgreSQL 장애 중 보호 API 인증을 fail-closed 처리하고 재시도 가능한 503을 반환한다")
+  void returnsServiceUnavailableWhenDatabaseCannotVerifyUser() throws Exception {
+    JsonNode registration = register();
+    String accessToken = registration.path("tokens").path("accessToken").asText();
+    doThrow(new DataAccessResourceFailureException("test outage"))
+        .when(userRepository)
+        .findByUserIdAndStatus(any(), eq(UserStatus.ACTIVE));
+
+    mockMvc.perform(get("/api/v1/users/me")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+        .andExpect(status().isServiceUnavailable())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("AUTHENTICATION_UNAVAILABLE"))
+        .andExpect(jsonPath("$.retryable").value(true));
   }
 
   private JsonNode register() throws Exception {
