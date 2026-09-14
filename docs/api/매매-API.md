@@ -1,6 +1,6 @@
 # 매매 모듈 API Spec
 
-상태: `Draft v0.1`
+상태: `Draft v0.2 (B2C)`
 
 공통 오류 형식과 Header 정책은 [공통 API 규약](공통-API-규약.md)을 따른다. `202 Accepted`는 거래소 접수나 체결 성공을 의미하지 않는다.
 
@@ -11,7 +11,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|신규 주문을 접수하고 내부 주문 식별자를 반환한다.|
-|인증|Bearer Token, `orders:write`, 계좌 거래 권한|
+|인증|Bearer Access Token, 본인 계좌 거래 가능|
 |성공 Status|`202 Accepted`|
 
 ## Request
@@ -32,8 +32,8 @@
 
 |검증항목|검증사항|
 |:--:|:--|
-|Idempotency-Key|필수, Client 범위에서 유일, 동일 Key의 Payload Hash 일치|
-|clientOrderId|필수, API Client 범위에서 유일, 최대 64자|
+|Idempotency-Key|필수, 사용자 범위에서 유일, 동일 Key의 Payload Hash 일치|
+|clientOrderId|필수, 사용자 범위에서 유일, 최대 64자|
 |accountId|필수 UUID, 계좌 거래 권한과 활성 상태 확인|
 |instrumentId/market|필수, 상품·시장 일치 및 거래 가능 상태|
 |side/orderType/timeInForce|지원 Enum 조합|
@@ -62,7 +62,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|주문의 최신 상태와 누적 체결 정보를 조회한다.|
-|인증|Bearer Token, `orders:read`, 계좌 조회 권한|
+|인증|Bearer Access Token, 본인 계좌 주문|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -108,7 +108,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|접근 가능한 계좌의 주문을 Cursor 기반으로 조회한다.|
-|인증|Bearer Token, `orders:read`|
+|인증|Bearer Access Token, 본인 주문|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -155,7 +155,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|주문의 전체 또는 일부 미체결 잔량 취소를 요청한다.|
-|인증|Bearer Token, `orders:write`, 계좌 거래 권한|
+|인증|Bearer Access Token, 본인 계좌 주문|
 |성공 Status|`202 Accepted`|
 
 ## Request
@@ -203,7 +203,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|주문의 미체결 수량 또는 지정 가격 정정을 요청한다.|
-|인증|Bearer Token, `orders:write`, 계좌 거래 권한|
+|인증|Bearer Access Token, 본인 계좌 주문|
 |성공 Status|`202 Accepted`|
 
 ## Request
@@ -251,8 +251,8 @@
 
 |항목|내용|
 |:--:|:--|
-|설명|고객 주문에서 발생한 개별 체결을 조회한다.|
-|인증|Bearer Token, `executions:read`, 계좌 조회 권한|
+|설명|사용자 주문에서 발생한 개별 체결을 조회한다.|
+|인증|Bearer Access Token, 본인 계좌 체결|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -297,7 +297,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|접근 가능한 계좌의 개별 체결 목록을 조회한다.|
-|인증|Bearer Token, `executions:read`|
+|인증|Bearer Access Token, 본인 체결|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -333,7 +333,7 @@
 ### fail-body
 
 ```json
-{"type":"https://api.example.com/problems/account-access-denied","title":"Account access denied","status":403,"code":"ACCOUNT_ACCESS_DENIED","detail":"The authenticated client cannot access executions for this account.","instance":"/api/v1/executions","requestId":"trading-req-007","retryable":false,"occurredAt":"2026-09-11T01:50:06Z","violations":[]}
+{"type":"https://api.example.com/problems/account-not-found","title":"Account not found","status":404,"code":"ACCOUNT_NOT_FOUND","detail":"The account was not found within the permitted scope.","instance":"/api/v1/executions","requestId":"trading-req-007","retryable":false,"occurredAt":"2026-09-11T01:50:06Z","violations":[]}
 ```
 
 ---
@@ -343,7 +343,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|계좌별 주문 상태와 체결 이벤트를 실시간 구독하고 sequence 이후 Replay를 요청한다.|
-|인증|Bearer Token, `orders:read` 또는 `executions:read`, 계좌 권한|
+|인증|Bearer Access Token, 본인 계좌|
 |성공 Status|`101 Switching Protocols`|
 
 ## Request
@@ -367,7 +367,7 @@
 |검증항목|검증사항|
 |:--:|:--|
 |Authorization|Handshake와 구독 시 Token·Session 상태 검증|
-|channels|지원 채널과 계좌별 Scope 확인|
+|channels|지원 채널과 사용자 소유 계좌인지 확인|
 |resumeAfterSequence|0 이상의 sequence, Replay 보존 범위 이내|
 |Backpressure|세션별 bounded queue 초과 시 연결 종료 후 Replay 요구|
 

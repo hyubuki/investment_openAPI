@@ -1,6 +1,6 @@
 # 계좌 모듈 API Spec
 
-상태: `Draft v0.1`
+상태: `Draft v0.2 (B2C)`
 
 공통 오류 형식과 Header 정책은 [공통 API 규약](공통-API-규약.md)을 따른다.
 
@@ -11,7 +11,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|인증 주체가 접근할 수 있는 거래 계좌 목록을 조회한다.|
-|인증|Bearer Token, `accounts:read`|
+|인증|Bearer Access Token|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -38,7 +38,7 @@
 |status|선택 Query, `PENDING`, `ACTIVE`, `RESTRICTED`, `SUSPENDED`, `CLOSED` 중 하나|
 |cursor|선택, 서버 발급 불투명 Cursor|
 |limit|1~100, 기본값 20|
-|접근 범위|Security Principal의 고객·API Client 계좌 권한으로 제한|
+|접근 범위|Security Principal의 `userId`가 소유한 계좌로 제한|
 
 ## Response
 
@@ -64,11 +64,11 @@
 
 ```json
 {
-  "type": "https://api.example.com/problems/scope-not-granted",
-  "title": "Scope not granted",
-  "status": 403,
-  "code": "SCOPE_NOT_GRANTED",
-  "detail": "The accounts:read scope is required.",
+  "type": "https://api.example.com/problems/unauthorized",
+  "title": "Unauthorized",
+  "status": 401,
+  "code": "UNAUTHORIZED",
+  "detail": "A valid access token is required.",
   "instance": "/api/v1/accounts",
   "requestId": "018f8f3a-6000-7e19-b520-667b62580201",
   "retryable": false,
@@ -84,7 +84,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|거래 계좌의 기본 정보와 현재 상태를 조회한다.|
-|인증|Bearer Token, `accounts:read`, 계좌 조회 권한|
+|인증|Bearer Access Token, 본인 계좌|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -109,7 +109,7 @@
 |검증항목|검증사항|
 |:--:|:--|
 |accountId|필수 UUID Path Variable|
-|계좌 권한|현재 사용자/API Client가 계좌를 조회할 수 있어야 함|
+|계좌 권한|Security Principal의 `userId`가 소유한 계좌여야 함|
 |민감정보|전체 계좌번호를 응답하거나 로그에 기록하지 않음|
 
 ## Response
@@ -152,7 +152,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|계좌의 시장·상품·방향·주문 유형별 거래 권한을 조회한다.|
-|인증|Bearer Token, `accounts:read`, 계좌 조회 권한|
+|인증|Bearer Access Token, 본인 계좌|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -206,11 +206,11 @@
 
 ```json
 {
-  "type": "https://api.example.com/problems/account-access-denied",
-  "title": "Account access denied",
-  "status": 403,
-  "code": "ACCOUNT_ACCESS_DENIED",
-  "detail": "The authenticated client cannot access this account.",
+  "type": "https://api.example.com/problems/account-not-found",
+  "title": "Account not found",
+  "status": 404,
+  "code": "ACCOUNT_NOT_FOUND",
+  "detail": "The account was not found within the permitted scope.",
   "instance": "/api/v1/accounts/018f8f3a-6bc1-7bc2-a7ef-8cd43c875111/trading-permissions",
   "requestId": "018f8f3a-6000-7e19-b520-667b62580203",
   "retryable": false,
@@ -226,7 +226,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|계좌에 적용된 거래 및 출금 제한을 조회한다.|
-|인증|Bearer Token, `accounts:read`, 계좌 조회 권한|
+|인증|Bearer Access Token, 본인 계좌|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -279,11 +279,11 @@
 
 ```json
 {
-  "type": "https://api.example.com/problems/account-access-denied",
-  "title": "Account access denied",
-  "status": 403,
-  "code": "ACCOUNT_ACCESS_DENIED",
-  "detail": "The authenticated client cannot access this account.",
+  "type": "https://api.example.com/problems/account-not-found",
+  "title": "Account not found",
+  "status": 404,
+  "code": "ACCOUNT_NOT_FOUND",
+  "detail": "The account was not found within the permitted scope.",
   "instance": "/api/v1/accounts/018f8f3a-6bc1-7bc2-a7ef-8cd43c875111/restrictions",
   "requestId": "018f8f3a-6000-7e19-b520-667b62580204",
   "retryable": false,

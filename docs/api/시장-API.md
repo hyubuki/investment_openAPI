@@ -1,6 +1,6 @@
 # 시장 모듈 API Spec
 
-상태: `Draft v0.1`
+상태: `Draft v0.2 (B2C)`
 
 공통 오류 형식과 Header 정책은 [공통 API 규약](공통-API-규약.md)을 따른다. 가격·수량은 문자열로 반환하며 시세 응답은 거래소 sequence와 시각을 포함한다.
 
@@ -11,7 +11,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|시장·상품 코드·상품명으로 거래 상품을 검색한다.|
-|인증|Bearer Token, `market:read`|
+|인증|Bearer Access Token|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -58,7 +58,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|상품 기준정보와 주문 단위를 조회한다.|
-|인증|Bearer Token, `market:read`|
+|인증|Bearer Access Token|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -103,7 +103,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|OpenAPI가 지원하는 시장 목록을 조회한다.|
-|인증|Bearer Token, `market:read`|
+|인증|Bearer Access Token|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -125,7 +125,7 @@
 |검증항목|검증사항|
 |:--:|:--|
 |status|선택 Query, `ACTIVE` 또는 `INACTIVE`|
-|Scope|`market:read` 필수|
+|Authorization|유효한 Bearer Access Token 필수|
 
 ## Response
 
@@ -138,7 +138,7 @@
 ### fail-body
 
 ```json
-{"type":"https://api.example.com/problems/scope-not-granted","title":"Scope not granted","status":403,"code":"SCOPE_NOT_GRANTED","detail":"The market:read scope is required.","instance":"/api/v1/markets","requestId":"market-req-003","retryable":false,"occurredAt":"2026-09-11T01:20:02Z","violations":[]}
+{"type":"https://api.example.com/problems/unauthorized","title":"Unauthorized","status":401,"code":"UNAUTHORIZED","detail":"A valid access token is required.","instance":"/api/v1/markets","requestId":"market-req-003","retryable":false,"occurredAt":"2026-09-11T01:20:02Z","violations":[]}
 ```
 
 ---
@@ -148,7 +148,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|현재 시장 세션과 주문 가능 상태를 조회한다.|
-|인증|Bearer Token, `market:read`|
+|인증|Bearer Access Token|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -193,7 +193,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|시장 거래일과 예정 세션을 기간으로 조회한다.|
-|인증|Bearer Token, `market:read`|
+|인증|Bearer Access Token|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -239,7 +239,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|상품의 최신 체결가와 최우선 매수·매도 호가를 조회한다.|
-|인증|Bearer Token, `market:read`|
+|인증|Bearer Access Token|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -285,7 +285,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|상품의 지정 깊이 호가 Snapshot을 조회한다.|
-|인증|Bearer Token, `market:read`|
+|인증|Bearer Access Token|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -330,8 +330,8 @@
 
 |항목|내용|
 |:--:|:--|
-|설명|상품에서 발생한 시장 전체 체결 Tick을 조회한다. 고객 주문 Execution과 구분한다.|
-|인증|Bearer Token, `market:read`|
+|설명|상품에서 발생한 시장 전체 체결 Tick을 조회한다. 사용자 주문 Execution과 구분한다.|
+|인증|Bearer Access Token|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -377,7 +377,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|Quote, Order Book과 시장 체결 이벤트를 상품별로 구독한다.|
-|인증|Bearer Token, `market:read`|
+|인증|Bearer Access Token|
 |성공 Status|`101 Switching Protocols`|
 
 ## Request
@@ -400,7 +400,7 @@
 
 |검증항목|검증사항|
 |:--:|:--|
-|Authorization|Handshake와 구독 처리 시 Token·Scope 검증|
+|Authorization|Handshake와 구독 처리 시 Access Token·Session 검증|
 |channels.name|지원 채널만 허용|
 |instrumentIds|존재하는 상품, Client별 최대 구독 수 제한|
 |depth|Order Book 채널에서만 1~10|

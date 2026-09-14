@@ -1,6 +1,6 @@
 # 원장 모듈 API Spec
 
-상태: `Draft v0.1`
+상태: `Draft v0.2 (B2C)`
 
 공통 오류 형식과 Header 정책은 [공통 API 규약](공통-API-규약.md)을 따른다. 외부 Client가 Posting을 직접 생성·수정·삭제하는 API는 제공하지 않는다.
 
@@ -11,7 +11,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|계좌의 통화별 결제·결제예정·예약·가용 현금 잔고를 조회한다.|
-|인증|Bearer Token, `balances:read`, 계좌 조회 권한|
+|인증|Bearer Access Token, 본인 계좌|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -80,7 +80,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|계좌의 상품별 결제·결제예정·예약·가용 수량과 평균 취득가를 조회한다.|
-|인증|Bearer Token, `positions:read`, 계좌 조회 권한|
+|인증|Bearer Access Token, 본인 계좌|
 |성공 Status|`200 OK`|
 
 ## Request
@@ -137,11 +137,11 @@
 
 ```json
 {
-  "type": "https://api.example.com/problems/account-access-denied",
-  "title": "Account access denied",
-  "status": 403,
-  "code": "ACCOUNT_ACCESS_DENIED",
-  "detail": "The authenticated client cannot access positions for this account.",
+  "type": "https://api.example.com/problems/account-not-found",
+  "title": "Account not found",
+  "status": 404,
+  "code": "ACCOUNT_NOT_FOUND",
+  "detail": "The account was not found within the permitted scope.",
   "instance": "/api/v1/accounts/018f8f3a-6bc1-7bc2-a7ef-8cd43c875111/positions",
   "requestId": "018f8f3a-6000-7e19-b520-667b62580402",
   "retryable": false,
@@ -157,7 +157,7 @@
 |항목|내용|
 |:--:|:--|
 |설명|계좌의 입출금·매매·수수료·세금·보정 내역을 업무 관점으로 조회한다.|
-|인증|Bearer Token, `ledger:read`, 계좌 조회 권한|
+|인증|Bearer Access Token, 본인 계좌|
 |성공 Status|`200 OK`|
 
 ## Request

@@ -1,6 +1,6 @@
 # 모듈별 API Spec
 
-상태: `Draft v0.1`
+상태: `Draft v0.2 (B2C)`
 
 이 디렉터리는 External Securities OpenAPI의 공통 계약과 업무 모듈별 Endpoint 상세 계약을 관리한다. 모든 Request/Response 예시는 구현 전 초안이며, 거래소 규정과 내부 OMS 계약이 확정되면 OpenAPI 3 문서와 함께 갱신한다.
 
@@ -9,7 +9,7 @@
 |업무 모듈|상세 API Spec|주요 책임|
 |:--:|:--|:--|
 |공통|[공통 API 규약](공통-API-규약.md)|인증 Header, 오류, 멱등성, 페이지네이션, WebSocket Envelope|
-|사용자|[사용자 API Spec](사용자-API.md)|가입·인증·Token·API Client와 Credential|
+|사용자|[사용자 API Spec](사용자-API.md)|가입·로그인·Token 갱신·Session|
 |계좌|[계좌 API Spec](계좌-API.md)|계좌 정보·거래 권한·제한 상태|
 |매매|[매매 API Spec](매매-API.md)|주문·정정·취소·체결·Private Stream|
 |원장|[원장 API Spec](원장-API.md)|잔고·포지션·원장 내역|

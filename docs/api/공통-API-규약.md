@@ -96,7 +96,7 @@ X-Request-Id: 018f8f3a-6000-7e19-b520-667b62580111
 ## 5. Idempotency
 
 - 주문 생성·정정·취소 요청은 `Idempotency-Key`를 필수로 받는다.
-- 동일 사용자 또는 API Client 범위에서 같은 키와 같은 Payload가 재전송되면 최초 결과를 반환한다.
+- 동일 사용자 범위에서 같은 키와 같은 Payload가 재전송되면 최초 결과를 반환한다.
 - 같은 키에 다른 Payload가 들어오면 `409 IDEMPOTENCY_KEY_REUSED`를 반환한다.
 - 키의 Scope, Payload Hash, 최초 응답 및 만료 시간을 저장한다.
 - Idempotency 보존 기간은 거래일과 Client 재시도 정책을 반영해 ADR에서 확정한다.
@@ -170,7 +170,7 @@ Client는 모르는 JSON 필드와 Enum 값을 안전하게 처리해야 한다.
 - Controller는 `@RestController`와 모듈별 Base Path를 사용한다.
 - 변경 API의 Request DTO는 Java `record`와 Bean Validation을 사용하고 `@Valid`를 반드시 적용한다.
 - JPA Entity를 Request Body로 받거나 Response Body로 직접 반환하지 않는다.
-- 인증된 `userId`, `apiClientId` 및 권한 범위는 Client가 Body로 지정한 값을 신뢰하지 않고 Spring Security Principal에서 얻는다.
+- 인증된 `userId`는 Client가 Body로 지정한 값을 신뢰하지 않고 Spring Security Principal에서 얻는다.
 - Service가 업무 오류 코드를 가진 예외를 발생시키고 `@RestControllerAdvice`가 `application/problem+json`으로 변환한다.
 - Controller에는 `@Transactional`을 두지 않고 쓰기·읽기 트랜잭션은 Service에서 선언한다.
 - 목록 응답은 Entity 전체를 로딩하지 않고 Projection 또는 Query DTO를 사용한다.
@@ -180,7 +180,7 @@ Client는 모르는 JSON 필드와 Enum 값을 안전하게 처리해야 한다.
 
 | 모듈 | Controller/Handler | 주요 DTO |
 |---|---|---|
-| 사용자 | `UserController`, `AuthController`, `ApiClientController` | `RegisterUserRequest`, `LoginRequest`, `TokenResponse`, `ApiClientResponse` |
+| 사용자 | `UserController`, `AuthController` | `UserRegistrationRequest`, `AuthLoginRequest`, `AuthTokensResponse`, `UserMeResponse` |
 | 계좌 | `AccountController` | `AccountSummaryResponse`, `AccountDetailResponse`, `TradingPermissionResponse` |
 | 매매 | `OrderController`, `ExecutionController`, `PrivateStreamHandler` | `CreateOrderRequest`, `OrderResponse`, `CancelOrderRequest`, `ReplaceOrderRequest`, `ExecutionResponse` |
 | 원장 | `BalanceController`, `PositionController`, `LedgerEntryController` | `BalanceResponse`, `PositionResponse`, `LedgerEntryResponse` |
