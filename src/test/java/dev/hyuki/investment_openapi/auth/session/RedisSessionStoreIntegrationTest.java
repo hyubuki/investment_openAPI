@@ -89,6 +89,8 @@ class RedisSessionStoreIntegrationTest {
         .doesNotContain(refreshToken);
     assertThat(ttl).isPositive().isLessThanOrEqualTo(60);
     assertThat(sessionStore.matches(userId, sessionId, refreshTokenHash)).isTrue();
+    assertThat(sessionStore.hasActiveSession(userId, sessionId)).isTrue();
+    assertThat(sessionStore.hasActiveSession(userId, UUID.randomUUID())).isFalse();
   }
 
   @Test

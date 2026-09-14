@@ -1,4 +1,4 @@
-package dev.hyuki.investment_openapi.auth.presentation;
+package dev.hyuki.investment_openapi.auth.filter;
 
 import dev.hyuki.investment_openapi.support.error.ApiException;
 import dev.hyuki.investment_openapi.support.error.ErrorCode;

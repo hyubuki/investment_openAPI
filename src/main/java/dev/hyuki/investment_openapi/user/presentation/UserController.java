@@ -1,11 +1,15 @@
 package dev.hyuki.investment_openapi.user.presentation;
 
+import dev.hyuki.investment_openapi.user.dto.UserMeResponse;
 import dev.hyuki.investment_openapi.user.dto.UserRegistrationRequest;
 import dev.hyuki.investment_openapi.user.dto.UserRegistrationResponse;
+import dev.hyuki.investment_openapi.user.entity.User;
 import dev.hyuki.investment_openapi.user.service.UserService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,5 +34,12 @@ public class UserController {
     );
     URI location = URI.create("/api/v1/users/" + response.userId());
     return ResponseEntity.created(location).body(response);
+  }
+
+  @GetMapping("/me")
+  public ResponseEntity<UserMeResponse> me(
+      @AuthenticationPrincipal User authenticatedUser
+  ) {
+    return ResponseEntity.ok(UserMeResponse.from(authenticatedUser));
   }
 }

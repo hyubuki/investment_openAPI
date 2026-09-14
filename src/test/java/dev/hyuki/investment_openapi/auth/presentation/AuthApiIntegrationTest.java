@@ -1,6 +1,7 @@
 package dev.hyuki.investment_openapi.auth.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -149,6 +150,61 @@ class AuthApiIntegrationTest extends RedisBackedIntegrationTest {
     mockMvc.perform(post("/api/v1/auth/logout"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+  }
+
+  @Test
+  @DisplayName("유효한 Access Token과 활성 Session으로 현재 사용자 정보를 조회한다")
+  void returnsCurrentUserForValidAccessTokenAndActiveSession() throws Exception {
+    JsonNode registration = register();
+    String accessToken = registration.path("tokens").path("accessToken").asText();
+
+    mockMvc.perform(get("/api/v1/users/me")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.userId").value(registration.path("userId").asText()))
+        .andExpect(jsonPath("$.email").value(EMAIL))
+        .andExpect(jsonPath("$.role").value("USER"))
+        .andExpect(jsonPath("$.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.createdAt").isNotEmpty());
+  }
+
+  @Test
+  @DisplayName("보호 API에 Access Token이 없거나 Refresh Token을 사용하면 인증을 거부한다")
+  void rejectsMissingAccessTokenAndRefreshTokenOnProtectedApi() throws Exception {
+    JsonNode registration = register();
+    String refreshToken = registration.path("tokens").path("refreshToken").asText();
+
+    mockMvc.perform(get("/api/v1/users/me"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+    mockMvc.perform(get("/api/v1/users/me")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + refreshToken))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+  }
+
+  @Test
+  @DisplayName("재로그인으로 교체된 Session의 이전 Access Token을 보호 API에서 거부한다")
+  void rejectsAccessTokenFromReplacedSession() throws Exception {
+    JsonNode registration = register();
+    String previousAccessToken = registration.path("tokens").path("accessToken").asText();
+    JsonNode login = responseBody(postJson("/api/v1/auth/login", Map.of(
+        "email", EMAIL,
+        "password", PASSWORD
+    )).andExpect(status().isOk()));
+    String currentAccessToken = login.path("accessToken").asText();
+
+    mockMvc.perform(get("/api/v1/users/me")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + previousAccessToken))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("SESSION_INVALID"));
+
+    mockMvc.perform(get("/api/v1/users/me")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + currentAccessToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.email").value(EMAIL));
   }
 
   private JsonNode register() throws Exception {

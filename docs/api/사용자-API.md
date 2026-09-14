@@ -318,6 +318,10 @@
 |사용자 상태|`ACTIVE` 상태만 조회 허용|
 |사용자 식별자|Request 값이 아닌 Security Principal의 `userId` 사용|
 
+Access Token 검증 시 Token의 `sid`가 Redis의 현재 사용자 Session과 일치해야 한다.
+Redis 또는 사용자 저장소에서 인증 상태를 확인할 수 없으면 요청을 우회시키지 않고
+`503 AUTHENTICATION_UNAVAILABLE`로 거부한다.
+
 ## Response
 
 ### success-body

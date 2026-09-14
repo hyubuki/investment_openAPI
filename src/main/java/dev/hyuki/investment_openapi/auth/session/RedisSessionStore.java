@@ -85,6 +85,12 @@ public class RedisSessionStore {
         .orElse(false);
   }
 
+  public boolean hasActiveSession(UUID userId, UUID sessionId) {
+    return findByUserId(userId)
+        .map(session -> session.sessionId().equals(sessionId))
+        .orElse(false);
+  }
+
   public SessionRotationResult rotate(
       AuthSession replacement,
       String expectedRefreshTokenHash

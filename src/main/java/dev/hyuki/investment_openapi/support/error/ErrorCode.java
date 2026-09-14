@@ -33,6 +33,18 @@ public enum ErrorCode {
       "Unauthorized",
       false
   ),
+  FORBIDDEN(
+      HttpStatus.FORBIDDEN,
+      "forbidden",
+      "Forbidden",
+      false
+  ),
+  AUTHENTICATION_UNAVAILABLE(
+      HttpStatus.SERVICE_UNAVAILABLE,
+      "authentication-unavailable",
+      "Authentication unavailable",
+      true
+  ),
   SESSION_INVALID(
       HttpStatus.UNAUTHORIZED,
       "session-invalid",

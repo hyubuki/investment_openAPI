@@ -13,6 +13,7 @@ import dev.hyuki.investment_openapi.user.support.EmailNormalizer;
 import java.time.Clock;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DataAccessException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,6 +79,46 @@ public class AuthService {
   public void logout(String accessToken) {
     TokenClaims claims = tokenProvider.readAccess(accessToken);
     sessionStore.deleteIfSessionMatches(claims.userId(), claims.sessionId());
+  }
+
+  @Transactional(readOnly = true)
+  public User authenticateAccessToken(String accessToken) {
+    TokenClaims claims = tokenProvider.readAccess(accessToken);
+    requireActiveSession(claims);
+    return findActiveUser(claims);
+  }
+
+  private void requireActiveSession(TokenClaims claims) {
+    try {
+      if (!sessionStore.hasActiveSession(claims.userId(), claims.sessionId())) {
+        throw new ApiException(
+            ErrorCode.SESSION_INVALID,
+            "The authentication session is invalid."
+        );
+      }
+    } catch (DataAccessException | IllegalStateException exception) {
+      throw new ApiException(
+          ErrorCode.AUTHENTICATION_UNAVAILABLE,
+          "The authentication session could not be verified.",
+          exception
+      );
+    }
+  }
+
+  private User findActiveUser(TokenClaims claims) {
+    try {
+      return userRepository.findByUserIdAndStatus(claims.userId(), UserStatus.ACTIVE)
+          .orElseThrow(() -> new ApiException(
+              ErrorCode.USER_INACTIVE,
+              "The authenticated user is not active."
+          ));
+    } catch (DataAccessException exception) {
+      throw new ApiException(
+          ErrorCode.AUTHENTICATION_UNAVAILABLE,
+          "The authenticated user could not be verified.",
+          exception
+      );
+    }
   }
 
   private void requireActive(User user) {

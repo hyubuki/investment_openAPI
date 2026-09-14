@@ -3,6 +3,7 @@ package dev.hyuki.investment_openapi.auth.presentation;
 import dev.hyuki.investment_openapi.auth.dto.AuthLoginRequest;
 import dev.hyuki.investment_openapi.auth.dto.AuthRefreshRequest;
 import dev.hyuki.investment_openapi.auth.dto.AuthTokensResponse;
+import dev.hyuki.investment_openapi.auth.filter.BearerTokenExtractor;
 import dev.hyuki.investment_openapi.auth.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
