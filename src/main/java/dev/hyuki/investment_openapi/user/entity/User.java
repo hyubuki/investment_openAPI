@@ -77,6 +77,16 @@ public class User {
     this.updatedAt = now;
   }
 
+  public void releaseExpiredLoginLock(Instant attemptedAt) {
+    Instant now = Objects.requireNonNull(attemptedAt, "attemptedAt must not be null");
+    if (status == UserStatus.LOCKED && lockedUntil != null && !lockedUntil.isAfter(now)) {
+      this.status = UserStatus.ACTIVE;
+      this.failedLoginCount = 0;
+      this.lockedUntil = null;
+      this.updatedAt = now;
+    }
+  }
+
   public UUID getUserId() {
     return userId;
   }

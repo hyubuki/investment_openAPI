@@ -9,13 +9,16 @@ import dev.hyuki.investment_openapi.support.error.ErrorCode;
 import dev.hyuki.investment_openapi.user.entity.User;
 import dev.hyuki.investment_openapi.user.entity.UserStatus;
 import dev.hyuki.investment_openapi.user.repository.UserRepository;
+import dev.hyuki.investment_openapi.user.service.UserService;
 import dev.hyuki.investment_openapi.user.support.EmailNormalizer;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -26,6 +29,7 @@ public class AuthService {
   private final AuthTokenService authTokenService;
   private final JwtTokenProvider tokenProvider;
   private final RedisSessionStore sessionStore;
+  private final UserService userService;
   private final Clock clock;
   private final String dummyPasswordHash;
 
@@ -35,6 +39,7 @@ public class AuthService {
       AuthTokenService authTokenService,
       JwtTokenProvider tokenProvider,
       RedisSessionStore sessionStore,
+      UserService userService,
       Clock clock
   ) {
     this.userRepository = userRepository;
@@ -42,16 +47,21 @@ public class AuthService {
     this.authTokenService = authTokenService;
     this.tokenProvider = tokenProvider;
     this.sessionStore = sessionStore;
+    this.userService = userService;
     this.clock = clock;
     this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
   }
 
   @Transactional
   public TokenPair login(String email, String rawPassword) {
-    Optional<User> candidate = findLoginCandidate(email);
+    Instant attemptedAt = clock.instant();
+    String normalizedEmail = EmailNormalizer.normalize(email);
+    Optional<User> candidate = findLoginCandidate(normalizedEmail);
+    candidate.ifPresent(user -> user.releaseExpiredLoginLock(attemptedAt));
     String passwordHash = candidate.map(User::getPasswordHash).orElse(dummyPasswordHash);
     boolean passwordMatches = passwordEncoder.matches(rawPassword, passwordHash);
     if (candidate.isEmpty() || !passwordMatches) {
+      candidate.ifPresent(user -> recordLoginFailure(normalizedEmail, attemptedAt));
       throw new ApiException(
           ErrorCode.INVALID_CREDENTIALS,
           "The supplied credentials are invalid."
@@ -123,12 +133,23 @@ public class AuthService {
     }
   }
 
-  private Optional<User> findLoginCandidate(String email) {
+  private Optional<User> findLoginCandidate(String normalizedEmail) {
     try {
-      return userRepository.findByEmail(EmailNormalizer.normalize(email));
+      return userRepository.findByEmail(normalizedEmail);
     } catch (DataAccessException exception) {
       throw authenticationUnavailable(
           "The supplied credentials could not be verified.",
+          exception
+      );
+    }
+  }
+
+  private void recordLoginFailure(String normalizedEmail, Instant failedAt) {
+    try {
+      userService.recordLoginFailure(normalizedEmail, failedAt);
+    } catch (DataAccessException | TransactionException exception) {
+      throw authenticationUnavailable(
+          "The failed login attempt could not be recorded.",
           exception
       );
     }

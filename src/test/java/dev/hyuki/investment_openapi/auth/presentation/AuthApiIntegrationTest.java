@@ -12,12 +12,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.hyuki.investment_openapi.auth.config.LoginProperties;
 import dev.hyuki.investment_openapi.auth.session.RedisSessionStore;
 import dev.hyuki.investment_openapi.auth.token.JwtTokenProvider;
 import dev.hyuki.investment_openapi.support.RedisBackedIntegrationTest;
 import dev.hyuki.investment_openapi.user.entity.User;
 import dev.hyuki.investment_openapi.user.entity.UserStatus;
 import dev.hyuki.investment_openapi.user.repository.UserRepository;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +32,7 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -53,6 +57,12 @@ class AuthApiIntegrationTest extends RedisBackedIntegrationTest {
 
   @Autowired
   private JwtTokenProvider tokenProvider;
+
+  @Autowired
+  private LoginProperties loginProperties;
+
+  @Autowired
+  private JdbcTemplate jdbcTemplate;
 
   @MockitoSpyBean
   private RedisSessionStore sessionStore;
@@ -112,6 +122,88 @@ class AuthApiIntegrationTest extends RedisBackedIntegrationTest {
     )).andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
         .andExpect(jsonPath("$.detail").value("The supplied credentials are invalid."));
+  }
+
+  @Test
+  @DisplayName("연속 로그인 실패가 임계치에 도달하면 사용자를 일정 시간 잠근다")
+  void locksUserAfterConsecutiveLoginFailures() throws Exception {
+    register();
+
+    for (int attempt = 0; attempt < loginProperties.maxFailedAttempts(); attempt++) {
+      postJson("/api/v1/auth/login", Map.of(
+          "email", EMAIL,
+          "password", "wrong-password"
+      )).andExpect(status().isUnauthorized())
+          .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+    }
+
+    User lockedUser = userRepository.findByEmail(EMAIL).orElseThrow();
+    assertThat(lockedUser.getFailedLoginCount()).isEqualTo(loginProperties.maxFailedAttempts());
+    assertThat(lockedUser.getStatus()).isEqualTo(UserStatus.LOCKED);
+    assertThat(lockedUser.getLockedUntil()).isAfter(Instant.now());
+
+    postJson("/api/v1/auth/login", Map.of(
+        "email", EMAIL,
+        "password", PASSWORD
+    )).andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("USER_INACTIVE"));
+  }
+
+  @Test
+  @DisplayName("잠금 시간이 만료되면 로그인을 허용하고 실패 횟수와 잠금 정보를 초기화한다")
+  void unlocksUserAfterLockDurationExpires() throws Exception {
+    register();
+    for (int attempt = 0; attempt < loginProperties.maxFailedAttempts(); attempt++) {
+      postJson("/api/v1/auth/login", Map.of(
+          "email", EMAIL,
+          "password", "wrong-password"
+      )).andExpect(status().isUnauthorized());
+    }
+    jdbcTemplate.update(
+        "UPDATE users SET locked_until = ? WHERE email = ?",
+        Timestamp.from(Instant.now().minusSeconds(1)),
+        EMAIL
+    );
+
+    postJson("/api/v1/auth/login", Map.of(
+        "email", EMAIL,
+        "password", "wrong-password"
+    )).andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+    User failedAfterExpiration = userRepository.findByEmail(EMAIL).orElseThrow();
+    assertThat(failedAfterExpiration.getStatus()).isEqualTo(UserStatus.ACTIVE);
+    assertThat(failedAfterExpiration.getFailedLoginCount()).isOne();
+    assertThat(failedAfterExpiration.getLockedUntil()).isNull();
+
+    postJson("/api/v1/auth/login", Map.of(
+        "email", EMAIL,
+        "password", PASSWORD
+    )).andExpect(status().isOk());
+
+    User unlockedUser = userRepository.findByEmail(EMAIL).orElseThrow();
+    assertThat(unlockedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
+    assertThat(unlockedUser.getFailedLoginCount()).isZero();
+    assertThat(unlockedUser.getLockedUntil()).isNull();
+  }
+
+  @Test
+  @DisplayName("잠금 임계치 전 로그인에 성공하면 연속 실패 횟수를 초기화한다")
+  void resetsFailedLoginCountAfterSuccessfulLogin() throws Exception {
+    register();
+    postJson("/api/v1/auth/login", Map.of(
+        "email", EMAIL,
+        "password", "wrong-password"
+    )).andExpect(status().isUnauthorized());
+    assertThat(userRepository.findByEmail(EMAIL).orElseThrow().getFailedLoginCount()).isOne();
+
+    postJson("/api/v1/auth/login", Map.of(
+        "email", EMAIL,
+        "password", PASSWORD
+    )).andExpect(status().isOk());
+
+    User user = userRepository.findByEmail(EMAIL).orElseThrow();
+    assertThat(user.getFailedLoginCount()).isZero();
+    assertThat(user.getLockedUntil()).isNull();
   }
 
   @Test
