@@ -18,8 +18,97 @@ X-Request-Id: {{requestId}}
     client.assert(response.status === 201, "status must be 201");
     client.assert(response.headers.valueOf("X-Request-Id") === "local-http-registration");
     client.assert(response.headers.valueOf("Location").endsWith(response.body.userId));
+    client.assert(response.body.tokens.tokenType === "Bearer");
+    client.assert(response.body.tokens.accessToken.length > 0);
+    client.assert(response.body.tokens.refreshToken.length > 0);
   });
   client.global.set("registeredEmail", response.body.email);
+%}
+
+### 로그인 성공 및 새 Session 발급
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "  {{registeredEmail}}  ",
+  "password": "{{password}}"
+}
+
+> {%
+  client.test("200 OK와 Token Pair를 반환한다", function () {
+    client.assert(response.status === 200, "status must be 200");
+    client.assert(response.body.tokenType === "Bearer");
+    client.assert(response.body.accessToken.length > 0);
+    client.assert(response.body.refreshToken.length > 0);
+  });
+  client.global.set("previousRefreshToken", response.body.refreshToken);
+%}
+
+### Refresh Token Rotation 성공
+POST {{baseUrl}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{previousRefreshToken}}"
+}
+
+> {%
+  client.test("새 Token Pair로 회전한다", function () {
+    client.assert(response.status === 200, "status must be 200");
+    client.assert(response.body.refreshToken !== client.global.get("previousRefreshToken"));
+  });
+  client.global.set("rotatedRefreshToken", response.body.refreshToken);
+%}
+
+### 이전 Refresh Token 재사용 탐지 및 Session Family 폐기
+POST {{baseUrl}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{previousRefreshToken}}"
+}
+
+> {%
+  client.test("401 REFRESH_TOKEN_REUSED를 반환한다", function () {
+    client.assert(response.status === 401, "status must be 401");
+    client.assert(response.body.code === "REFRESH_TOKEN_REUSED");
+  });
+%}
+
+### 로그아웃 검증을 위한 재로그인
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{registeredEmail}}",
+  "password": "{{password}}"
+}
+
+> {%
+  client.test("재로그인으로 새 Session을 발급한다", function () {
+    client.assert(response.status === 200, "status must be 200");
+  });
+  client.global.set("logoutAccessToken", response.body.accessToken);
+%}
+
+### 로그아웃 성공
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{logoutAccessToken}}
+
+> {%
+  client.test("현재 Session을 폐기하고 204를 반환한다", function () {
+    client.assert(response.status === 204, "status must be 204");
+  });
+%}
+
+### 로그아웃 멱등 재요청
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{logoutAccessToken}}
+
+> {%
+  client.test("이미 폐기된 Session에도 204를 반환한다", function () {
+    client.assert(response.status === 204, "status must be 204");
+  });
 %}
 
 ### 정규화된 이메일 중복 등록 거부

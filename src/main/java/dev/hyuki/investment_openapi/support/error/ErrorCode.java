@@ -15,6 +15,48 @@ public enum ErrorCode {
       "Email already exists",
       false
   ),
+  INVALID_CREDENTIALS(
+      HttpStatus.UNAUTHORIZED,
+      "invalid-credentials",
+      "Invalid credentials",
+      false
+  ),
+  USER_INACTIVE(
+      HttpStatus.UNAUTHORIZED,
+      "user-inactive",
+      "User inactive",
+      false
+  ),
+  UNAUTHORIZED(
+      HttpStatus.UNAUTHORIZED,
+      "unauthorized",
+      "Unauthorized",
+      false
+  ),
+  FORBIDDEN(
+      HttpStatus.FORBIDDEN,
+      "forbidden",
+      "Forbidden",
+      false
+  ),
+  AUTHENTICATION_UNAVAILABLE(
+      HttpStatus.SERVICE_UNAVAILABLE,
+      "authentication-unavailable",
+      "Authentication unavailable",
+      true
+  ),
+  SESSION_INVALID(
+      HttpStatus.UNAUTHORIZED,
+      "session-invalid",
+      "Session invalid",
+      false
+  ),
+  REFRESH_TOKEN_REUSED(
+      HttpStatus.UNAUTHORIZED,
+      "refresh-token-reused",
+      "Refresh token reused",
+      false
+  ),
   INVALID_TOKEN(
       HttpStatus.UNAUTHORIZED,
       "invalid-token",

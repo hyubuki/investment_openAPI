@@ -69,6 +69,14 @@ public class User {
     return new User(email, passwordHash, registeredAt);
   }
 
+  public void recordSuccessfulLogin(Instant loggedInAt) {
+    Instant now = Objects.requireNonNull(loggedInAt, "loggedInAt must not be null");
+    this.failedLoginCount = 0;
+    this.lockedUntil = null;
+    this.lastLoginAt = now;
+    this.updatedAt = now;
+  }
+
   public UUID getUserId() {
     return userId;
   }

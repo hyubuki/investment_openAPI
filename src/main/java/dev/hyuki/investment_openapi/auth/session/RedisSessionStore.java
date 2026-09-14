@@ -5,9 +5,11 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -15,6 +17,38 @@ public class RedisSessionStore {
 
   private static final String KEY_PREFIX = "auth:session:user:";
   private static final String FIELD_SEPARATOR = "\\|";
+  private static final DefaultRedisScript<Long> ROTATE_SCRIPT = new DefaultRedisScript<>("""
+      local current = redis.call('GET', KEYS[1])
+      if not current then
+        return 0
+      end
+
+      local _, sessionId, refreshHash = string.match(current, '^([^|]+)|([^|]+)|([^|]+)|')
+      if not sessionId or sessionId ~= ARGV[1] then
+        return 0
+      end
+      if refreshHash ~= ARGV[2] then
+        redis.call('DEL', KEYS[1])
+        return -1
+      end
+
+      redis.call('SET', KEYS[1], ARGV[3], 'PX', ARGV[4])
+      return 1
+      """, Long.class);
+  private static final DefaultRedisScript<Long> DELETE_IF_SESSION_MATCHES_SCRIPT =
+      new DefaultRedisScript<>("""
+          local current = redis.call('GET', KEYS[1])
+          if not current then
+            return 0
+          end
+
+          local _, sessionId = string.match(current, '^([^|]+)|([^|]+)|')
+          if sessionId ~= ARGV[1] then
+            return 0
+          end
+
+          return redis.call('DEL', KEYS[1])
+          """, Long.class);
 
   private final StringRedisTemplate redisTemplate;
   private final Clock clock;
@@ -25,10 +59,7 @@ public class RedisSessionStore {
   }
 
   public void save(AuthSession session) {
-    Duration ttl = Duration.between(clock.instant(), session.expiresAt());
-    if (ttl.isZero() || ttl.isNegative()) {
-      throw new IllegalArgumentException("session must expire in the future");
-    }
+    Duration ttl = ttl(session);
     redisTemplate.opsForValue().set(key(session.userId()), encode(session), ttl);
   }
 
@@ -54,6 +85,46 @@ public class RedisSessionStore {
         .orElse(false);
   }
 
+  public boolean hasActiveSession(UUID userId, UUID sessionId) {
+    return findByUserId(userId)
+        .map(session -> session.sessionId().equals(sessionId))
+        .orElse(false);
+  }
+
+  public SessionRotationResult rotate(
+      AuthSession replacement,
+      String expectedRefreshTokenHash
+  ) {
+    Duration ttl = ttl(replacement);
+    Long result = redisTemplate.execute(
+        ROTATE_SCRIPT,
+        List.of(key(replacement.userId())),
+        replacement.sessionId().toString(),
+        expectedRefreshTokenHash,
+        encode(replacement),
+        Long.toString(ttl.toMillis())
+    );
+    if (result == null) {
+      throw new IllegalStateException("Redis did not return a session rotation result");
+    }
+    if (result == 1L) {
+      return SessionRotationResult.ROTATED;
+    }
+    if (result == -1L) {
+      return SessionRotationResult.REUSED;
+    }
+    return SessionRotationResult.INVALID;
+  }
+
+  public boolean deleteIfSessionMatches(UUID userId, UUID sessionId) {
+    Long deleted = redisTemplate.execute(
+        DELETE_IF_SESSION_MATCHES_SCRIPT,
+        List.of(key(userId)),
+        sessionId.toString()
+    );
+    return deleted != null && deleted == 1L;
+  }
+
   public void delete(UUID userId) {
     redisTemplate.delete(key(userId));
   }
@@ -71,6 +142,14 @@ public class RedisSessionStore {
         session.issuedAt().toString(),
         session.expiresAt().toString()
     );
+  }
+
+  private Duration ttl(AuthSession session) {
+    Duration ttl = Duration.between(clock.instant(), session.expiresAt());
+    if (ttl.isZero() || ttl.isNegative()) {
+      throw new IllegalArgumentException("session must expire in the future");
+    }
+    return ttl;
   }
 
   private AuthSession decode(String value) {

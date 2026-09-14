@@ -12,11 +12,13 @@ import static org.mockito.Mockito.when;
 import dev.hyuki.investment_openapi.auth.session.AuthSession;
 import dev.hyuki.investment_openapi.auth.session.RedisSessionStore;
 import dev.hyuki.investment_openapi.auth.session.RefreshTokenHasher;
+import dev.hyuki.investment_openapi.auth.session.SessionRotationResult;
 import dev.hyuki.investment_openapi.auth.token.JwtTokenProvider;
+import dev.hyuki.investment_openapi.auth.token.TokenClaims;
 import dev.hyuki.investment_openapi.auth.token.TokenPair;
-import java.time.Clock;
+import dev.hyuki.investment_openapi.support.error.ApiException;
+import dev.hyuki.investment_openapi.support.error.ErrorCode;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,8 +43,7 @@ class AuthTokenServiceTest {
     authTokenService = new AuthTokenService(
         tokenProvider,
         sessionStore,
-        refreshTokenHasher,
-        Clock.fixed(NOW, ZoneOffset.UTC)
+        refreshTokenHasher
     );
   }
 
@@ -80,13 +81,66 @@ class AuthTokenServiceTest {
         .isInstanceOf(RedisConnectionFailureException.class);
   }
 
+  @Test
+  @DisplayName("현재 Refresh Token Hash가 일치하면 같은 Session ID로 Token Pair를 회전한다")
+  void rotatesTokenPairWithinCurrentSession() {
+    UUID userId = UUID.randomUUID();
+    UUID sessionId = UUID.randomUUID();
+    String refreshToken = "current-refresh-token";
+    TokenClaims claims = new TokenClaims(
+        userId,
+        sessionId,
+        "refresh-jti",
+        NOW,
+        NOW.plusSeconds(86400)
+    );
+    TokenPair replacement = pair(sessionId);
+    when(tokenProvider.readRefresh(refreshToken)).thenReturn(claims);
+    when(tokenProvider.issue(userId, sessionId)).thenReturn(replacement);
+    when(sessionStore.rotate(
+        any(AuthSession.class),
+        eq(refreshTokenHasher.hash(refreshToken))
+    )).thenReturn(SessionRotationResult.ROTATED);
+
+    TokenPair rotated = authTokenService.rotateSession(refreshToken);
+
+    assertThat(rotated).isSameAs(replacement);
+  }
+
+  @Test
+  @DisplayName("이미 회전된 Refresh Token이면 REFRESH_TOKEN_REUSED 오류를 반환한다")
+  void rejectsReusedRefreshToken() {
+    String refreshToken = "reused-refresh-token";
+    UUID userId = UUID.randomUUID();
+    UUID sessionId = UUID.randomUUID();
+    when(tokenProvider.readRefresh(refreshToken)).thenReturn(new TokenClaims(
+        userId,
+        sessionId,
+        "refresh-jti",
+        NOW,
+        NOW.plusSeconds(86400)
+    ));
+    when(tokenProvider.issue(userId, sessionId)).thenReturn(pair(sessionId));
+    when(sessionStore.rotate(any(AuthSession.class), any(String.class)))
+        .thenReturn(SessionRotationResult.REUSED);
+
+    assertThatThrownBy(() -> authTokenService.rotateSession(refreshToken))
+        .isInstanceOfSatisfying(
+            ApiException.class,
+            exception -> assertThat(exception.code()).isEqualTo(
+                ErrorCode.REFRESH_TOKEN_REUSED
+            )
+        );
+  }
+
   private TokenPair pair(UUID sessionId) {
     return new TokenPair(
         "access-token",
         NOW.plusSeconds(1800),
         "refresh-token",
         NOW.plusSeconds(86400),
-        sessionId
+        sessionId,
+        NOW
     );
   }
 }

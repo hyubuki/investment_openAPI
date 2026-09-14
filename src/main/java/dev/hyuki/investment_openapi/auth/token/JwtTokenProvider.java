@@ -58,7 +58,8 @@ public class JwtTokenProvider {
         accessExpiresAt,
         encode(userId, sessionId, issuedAt, refreshExpiresAt, "refresh"),
         refreshExpiresAt,
-        sessionId
+        sessionId,
+        issuedAt
     );
   }
 

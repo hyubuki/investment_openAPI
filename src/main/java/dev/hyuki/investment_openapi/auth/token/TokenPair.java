@@ -8,13 +8,14 @@ public record TokenPair(
     Instant accessExpiresAt,
     String refreshToken,
     Instant refreshExpiresAt,
-    UUID sessionId
+    UUID sessionId,
+    Instant issuedAt
 ) {
 
   @Override
   public String toString() {
     return "TokenPair[accessToken=[REDACTED], accessExpiresAt=" + accessExpiresAt
         + ", refreshToken=[REDACTED], refreshExpiresAt=" + refreshExpiresAt
-        + ", sessionId=" + sessionId + "]";
+        + ", sessionId=" + sessionId + ", issuedAt=" + issuedAt + "]";
   }
 }
