@@ -49,8 +49,8 @@
   "items": [
     {
       "accountId": "018f8f3a-6bc1-7bc2-a7ef-8cd43c875111",
-      "accountNumberMasked": "123-****-7890",
-      "accountType": "CASH",
+      "accountNumberMasked": "****-****-7890",
+      "accountType": "BROKERAGE",
       "baseCurrency": "KRW",
       "status": "ACTIVE"
     }
@@ -119,8 +119,8 @@
 ```json
 {
   "accountId": "018f8f3a-6bc1-7bc2-a7ef-8cd43c875111",
-  "accountNumberMasked": "123-****-7890",
-  "accountType": "CASH",
+  "accountNumberMasked": "****-****-7890",
+  "accountType": "BROKERAGE",
   "baseCurrency": "KRW",
   "status": "ACTIVE",
   "openedAt": "2026-09-01T00:00:00Z",
