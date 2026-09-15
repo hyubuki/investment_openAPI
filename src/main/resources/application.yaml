@@ -9,6 +9,9 @@ spring:
     open-in-view: false
 
 security:
+  account-number:
+    encryption-key: ${ACCOUNT_NUMBER_ENCRYPTION_KEY}
+    hash-key: ${ACCOUNT_NUMBER_HASH_KEY}
   login:
     max-failed-attempts: ${LOGIN_MAX_FAILED_ATTEMPTS:5}
     lock-duration: ${LOGIN_LOCK_DURATION:PT15M}

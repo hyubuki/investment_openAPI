@@ -17,6 +17,9 @@ spring:
     enabled: true
 
 security:
+  account-number:
+    encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+    hash-key: MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE=
   jwt:
     issuer: investment-openapi-test
     audience: investment-openapi-test-clients
