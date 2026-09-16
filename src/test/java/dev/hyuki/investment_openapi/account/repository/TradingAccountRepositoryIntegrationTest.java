@@ -72,6 +72,25 @@ class TradingAccountRepositoryIntegrationTest {
     )).isInstanceOf(DataIntegrityViolationException.class);
   }
 
+  @Test
+  @DisplayName("중개형 ISA 계좌는 일반 위탁계좌와 다른 계좌 유형으로 저장한다")
+  void persistsIsaBrokerageAccountType() {
+    User owner = saveUser("isa-owner@example.com");
+    TradingAccount account = tradingAccountRepository.saveAndFlush(TradingAccount.openPending(
+        owner.getUserId(),
+        "v1.isa-encrypted-account-number",
+        "c".repeat(64),
+        AccountType.ISA_BROKERAGE,
+        "KRW",
+        Instant.parse("2026-09-15T00:00:00Z")
+    ));
+
+    assertThat(tradingAccountRepository.findById(account.getAccountId()))
+        .get()
+        .extracting(TradingAccount::getAccountType)
+        .isEqualTo(AccountType.ISA_BROKERAGE);
+  }
+
   private User saveUser(String email) {
     return userRepository.saveAndFlush(User.register(
         email,
@@ -85,7 +104,7 @@ class TradingAccountRepositoryIntegrationTest {
         owner.getUserId(),
         encrypted,
         hash,
-        AccountType.BROKERAGE,
+        AccountType.GENERAL_BROKERAGE,
         "krw",
         Instant.parse("2026-09-15T00:00:00Z")
     );

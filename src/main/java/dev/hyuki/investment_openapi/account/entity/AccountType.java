@@ -1,5 +1,6 @@
 package dev.hyuki.investment_openapi.account.entity;
 
 public enum AccountType {
-  BROKERAGE
+  GENERAL_BROKERAGE,
+  ISA_BROKERAGE
 }

@@ -50,7 +50,7 @@
     {
       "accountId": "018f8f3a-6bc1-7bc2-a7ef-8cd43c875111",
       "accountNumberMasked": "****-****-7890",
-      "accountType": "BROKERAGE",
+      "accountType": "GENERAL_BROKERAGE",
       "baseCurrency": "KRW",
       "status": "ACTIVE"
     }
@@ -120,7 +120,7 @@
 {
   "accountId": "018f8f3a-6bc1-7bc2-a7ef-8cd43c875111",
   "accountNumberMasked": "****-****-7890",
-  "accountType": "BROKERAGE",
+  "accountType": "GENERAL_BROKERAGE",
   "baseCurrency": "KRW",
   "status": "ACTIVE",
   "openedAt": "2026-09-01T00:00:00Z",
@@ -177,7 +177,7 @@
 |검증항목|검증사항|
 |:--:|:--|
 |accountId|필수 UUID, 계좌 조회 권한 확인|
-|market|선택 Query, 지원 시장 코드|
+|market|선택 Query, 지원 시장 코드 (`KR`, `US`)|
 |activeOnly|선택 Boolean, 기본값 `true`|
 |유효기간|조회 시점이 `effectiveFrom` 이상, `effectiveUntil` 미만인 권한만 활성|
 
@@ -190,7 +190,7 @@
   "accountId": "018f8f3a-6bc1-7bc2-a7ef-8cd43c875111",
   "items": [
     {
-      "market": "KRX",
+      "market": "KR",
       "assetClass": "EQUITY",
       "side": "BOTH",
       "orderType": "LIMIT",
