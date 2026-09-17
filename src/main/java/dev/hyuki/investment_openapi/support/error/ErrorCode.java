@@ -68,6 +68,24 @@ public enum ErrorCode {
       "token-expired",
       "Token expired",
       false
+  ),
+  ACCOUNT_NOT_FOUND(
+      HttpStatus.NOT_FOUND,
+      "account-not-found",
+      "Account not found",
+      false
+  ),
+  ACCOUNT_NOT_ACTIVE(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      "account-not-active",
+      "Account not active",
+      false
+  ),
+  TRADING_PERMISSION_DENIED(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      "trading-permission-denied",
+      "Trading permission denied",
+      false
   );
 
   private final HttpStatus status;

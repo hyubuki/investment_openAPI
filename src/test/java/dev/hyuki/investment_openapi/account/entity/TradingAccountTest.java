@@ -21,7 +21,7 @@ class TradingAccountTest {
         UUID.randomUUID(),
         encrypted,
         hash,
-        AccountType.BROKERAGE,
+        AccountType.GENERAL_BROKERAGE,
         "krw",
         Instant.parse("2026-09-15T00:00:00Z")
     );
