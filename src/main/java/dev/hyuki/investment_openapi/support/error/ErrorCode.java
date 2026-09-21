@@ -81,6 +81,12 @@ public enum ErrorCode {
       "Account not active",
       false
   ),
+  ACCOUNT_RESTRICTED(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      "account-restricted",
+      "Account restricted",
+      false
+  ),
   TRADING_PERMISSION_DENIED(
       HttpStatus.UNPROCESSABLE_ENTITY,
       "trading-permission-denied",

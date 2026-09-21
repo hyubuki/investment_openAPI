@@ -3,6 +3,7 @@ package dev.hyuki.investment_openapi.account.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -11,9 +12,11 @@ import dev.hyuki.investment_openapi.account.entity.AssetClass;
 import dev.hyuki.investment_openapi.account.entity.OrderSide;
 import dev.hyuki.investment_openapi.account.entity.OrderType;
 import dev.hyuki.investment_openapi.account.entity.PermissionSide;
+import dev.hyuki.investment_openapi.account.entity.RestrictionType;
 import dev.hyuki.investment_openapi.account.entity.TradingAccount;
 import dev.hyuki.investment_openapi.account.entity.TradingMarket;
 import dev.hyuki.investment_openapi.account.entity.TradingPermissionStatus;
+import dev.hyuki.investment_openapi.account.repository.AccountRestrictionRepository;
 import dev.hyuki.investment_openapi.account.repository.TradingPermissionRepository;
 import dev.hyuki.investment_openapi.support.error.ApiException;
 import dev.hyuki.investment_openapi.support.error.ErrorCode;
@@ -38,6 +41,9 @@ class TradingPermissionServiceTest {
   private AccountAuthorizationService accountAuthorizationService;
 
   @Mock
+  private AccountRestrictionRepository accountRestrictionRepository;
+
+  @Mock
   private TradingPermissionRepository tradingPermissionRepository;
 
   private TradingPermissionService tradingPermissionService;
@@ -46,6 +52,7 @@ class TradingPermissionServiceTest {
   void setUp() {
     tradingPermissionService = new TradingPermissionService(
         accountAuthorizationService,
+        accountRestrictionRepository,
         tradingPermissionRepository,
         Clock.fixed(NOW, ZoneOffset.UTC)
     );
@@ -76,6 +83,11 @@ class TradingPermissionServiceTest {
     );
 
     assertThat(result).isSameAs(account);
+    verify(accountRestrictionRepository).existsActiveRestriction(
+        accountId,
+        Set.of(RestrictionType.BUY_BLOCKED, RestrictionType.ALL_TRADING_BLOCKED),
+        NOW
+    );
   }
 
   @Test
@@ -93,6 +105,30 @@ class TradingPermissionServiceTest {
         OrderType.MARKET
     )).isInstanceOfSatisfying(ApiException.class, exception ->
         assertThat(exception.code()).isEqualTo(ErrorCode.ACCOUNT_NOT_ACTIVE)
+    );
+    verifyNoInteractions(accountRestrictionRepository, tradingPermissionRepository);
+  }
+
+  @Test
+  @DisplayName("활성 매도 제한이 있으면 유효한 거래 권한을 조회하기 전에 주문을 거부한다")
+  void rejectsSellOrderWithActiveRestriction() {
+    UUID accountId = UUID.randomUUID();
+    TradingAccount account = accountWithStatus(AccountStatus.ACTIVE);
+    when(accountAuthorizationService.requireOwnedAccount(accountId)).thenReturn(account);
+    when(accountRestrictionRepository.existsActiveRestriction(
+        accountId,
+        Set.of(RestrictionType.SELL_BLOCKED, RestrictionType.ALL_TRADING_BLOCKED),
+        NOW
+    )).thenReturn(true);
+
+    assertThatThrownBy(() -> tradingPermissionService.requireOrderAllowed(
+        accountId,
+        TradingMarket.KR,
+        AssetClass.EQUITY,
+        OrderSide.SELL,
+        OrderType.LIMIT
+    )).isInstanceOfSatisfying(ApiException.class, exception ->
+        assertThat(exception.code()).isEqualTo(ErrorCode.ACCOUNT_RESTRICTED)
     );
     verifyNoInteractions(tradingPermissionRepository);
   }
