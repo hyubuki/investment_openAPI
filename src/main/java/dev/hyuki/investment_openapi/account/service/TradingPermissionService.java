@@ -5,13 +5,16 @@ import dev.hyuki.investment_openapi.account.entity.AssetClass;
 import dev.hyuki.investment_openapi.account.entity.OrderSide;
 import dev.hyuki.investment_openapi.account.entity.OrderType;
 import dev.hyuki.investment_openapi.account.entity.PermissionSide;
+import dev.hyuki.investment_openapi.account.entity.RestrictionType;
 import dev.hyuki.investment_openapi.account.entity.TradingAccount;
 import dev.hyuki.investment_openapi.account.entity.TradingMarket;
 import dev.hyuki.investment_openapi.account.entity.TradingPermissionStatus;
+import dev.hyuki.investment_openapi.account.repository.AccountRestrictionRepository;
 import dev.hyuki.investment_openapi.account.repository.TradingPermissionRepository;
 import dev.hyuki.investment_openapi.support.error.ApiException;
 import dev.hyuki.investment_openapi.support.error.ErrorCode;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -22,15 +25,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class TradingPermissionService {
 
   private final AccountAuthorizationService accountAuthorizationService;
+  private final AccountRestrictionRepository accountRestrictionRepository;
   private final TradingPermissionRepository tradingPermissionRepository;
   private final Clock clock;
 
   public TradingPermissionService(
       AccountAuthorizationService accountAuthorizationService,
+      AccountRestrictionRepository accountRestrictionRepository,
       TradingPermissionRepository tradingPermissionRepository,
       Clock clock
   ) {
     this.accountAuthorizationService = accountAuthorizationService;
+    this.accountRestrictionRepository = accountRestrictionRepository;
     this.tradingPermissionRepository = tradingPermissionRepository;
     this.clock = clock;
   }
@@ -55,6 +61,22 @@ public class TradingPermissionService {
       );
     }
 
+    Instant evaluatedAt = clock.instant();
+    RestrictionType sideRestriction = switch (requestedSide) {
+      case BUY -> RestrictionType.BUY_BLOCKED;
+      case SELL -> RestrictionType.SELL_BLOCKED;
+    };
+    if (accountRestrictionRepository.existsActiveRestriction(
+        accountId,
+        Set.of(sideRestriction, RestrictionType.ALL_TRADING_BLOCKED),
+        evaluatedAt
+    )) {
+      throw new ApiException(
+          ErrorCode.ACCOUNT_RESTRICTED,
+          "An active account restriction blocks the requested order."
+      );
+    }
+
     Set<PermissionSide> allowedSides = Set.of(
         PermissionSide.forOrder(requestedSide),
         PermissionSide.BOTH
@@ -66,7 +88,7 @@ public class TradingPermissionService {
         allowedSides,
         orderType,
         TradingPermissionStatus.ACTIVE,
-        clock.instant()
+        evaluatedAt
     );
     if (!allowed) {
       throw new ApiException(
